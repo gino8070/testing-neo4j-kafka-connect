@@ -21,5 +21,25 @@ docker-compose up -d
 4. show messages
 
 ```
-./consume-neo4j-topic.sh
+./consume-neo4j-topic.sh neo4j-source
+```
+
+5. add test data
+
+```
+./gen-data.sh
+```
+
+## Appendix
+
+consume offset
+
+```
+./consume-neo4j-topic.sh _neo4j-connect-offsets
+```
+
+list topics
+
+```
+./list-topics.sh
 ```

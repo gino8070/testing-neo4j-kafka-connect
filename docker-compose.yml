@@ -1,0 +1,72 @@
+version: '3.8'
+volumes:
+  neo4j-data:
+services:
+  neo4j:
+    image: neo4j:4.4.0
+    volumes:
+      - type: volume
+        source: neo4j-data
+        target: /data
+        volume:
+          nocopy: true
+    hostname: neo4j
+    container_name: neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/streams
+      - NEO4J_dbms_logs_debug_level=DEBUG
+      # if use query log features. needs enterprise edition.
+      # - NEO4J_dbms_logs_query_threshold=0
+      # - NEO4J_dbms_logs_query_enabled=VERBOSE
+      # - NEO4J_dbms_logs_query_parameter__logging__enabled=true
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "12181:12181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 12181
+  kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "19092:19092"
+    depends_on:
+      - zookeeper
+    restart: always
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:12181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  connect:
+    build:
+      context: .
+      dockerfile: Dockerfile-kafka-connect
+    hostname: connect
+    depends_on:
+      - kafka
+      - neo4j
+    container_name: connect 
+    restart: always
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:19092
+      CONNECT_GROUP_ID: neo4j-connect
+      CONNECT_CONFIG_STORAGE_TOPIC: _neo4j-connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: _neo4j-connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: _neo4j-connect-status
+      CONNECT_REST_PORT: 8083
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_PLUGIN_PATH: '/usr/share/java,/usr/share/confluent-hub-components'
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
